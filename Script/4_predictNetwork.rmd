@@ -1,0 +1,177 @@
+---
+title: "Predicting the spatial structure of St. Lawrence food webs"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+author: David Beauchesne, Kévin Cazelles, Guillaume Blanchet, Philippe Archambault, Dominique Gravel
+lang: en
+abstract:
+fontfamily: fourier
+linestretch: 1
+fontsize: 10pt
+lof: no
+output:
+pdf_document:
+    highlight: kate
+    toc: yes
+    toc_depth: 3
+    fig_caption: yes
+    keep_tex: yes
+    latex_engine: pdflatex
+    number_section: yes
+md_document:
+    variant: markdown_strict
+---
+
+<!-- render(input = './Script/4_predictNetwork.rmd', 'pdf_document') -->
+
+```{r comment=">", echo = FALSE, eval = TRUE, include = FALSE}
+    rm(list=ls())
+    setwd("/Users/davidbeauchesne/Dropbox/PhD/PhD_obj2/Structure_Comm_EGSL/Predict_network/")
+
+    # Libraries
+        library(reshape2)
+        library(tidyr)
+        library(dplyr)
+        library(sp)
+        library(rgdal)
+
+    # Functions
+        source('../../../PhD_RawData/script/function/colorBar.r')
+        source('../../../PhD_RawData/script/function/plotEGSL.r')
+
+    # Load files
+        # Species occurrence probabilities for the St. Lawrence
+            predEGSL <- readRDS('../EGSL_species_distribution/RData/predEGSL.rds')
+
+        # EGSL species list from JSDM analysis
+            sp <- readRDS('./RData/spEGSL.rds')
+            nSp <- nrow(sp) # number of taxa
+
+        # Complete list of EGSL species
+            load("../Interaction_catalog/RData/sp_egsl.RData")
+
+        # Network predictions with interactions per cell
+            networkPredict <- readRDS('./RData/networkPredict.rds')
+            networkFoodWeb <- readRDS('./RData/networkFoodWeb.rds')
+
+        # Load grid
+            egsl_grid <- readOGR(dsn = "../../../PhD_obj0/Study_Area/RData/", layer = "egsl_grid") # Load grid
+
+        # Eventually needed
+            # modelAUC <- readRDS('./RData/modelAUC.rds') #Eventually to have individual threshold per species?
+            # egsl_grid <- readOGR(dsn = "../../../PhD_obj0/Study_Area/RData/", layer = "egsl_grid") # Load grid
+
+```
+
+# Network level evaluation of St. Lawrence networks
+
+"The goal of this document is to combine the use of joint species distibution models (JSDMs) with a machine learning algorithm built to predict biotic interactions in order to predict the spatial strucutre of interactions networks, effectively bringing to "fruition" the integrated niche concept with predictive tools. At the moment, there are interactions that simply do not make any sense... Like Porifera eating Gadus morhua"
+
+# Overview
+
+These are essentially the kind of final results we wish to obtain for the 2nd objective of my thesis. The results presented combine the use of joint species distribution models and a biotic interactions prediction machine learning algorithm in order to predict the spatial structure of ecological networks in the St. Lawrence. At the moment, though, there are still many things that need to be finished before we are remotely close to calling these final results and discussing them from an ecological standpoint rather than a purely methodological one:
+
+- There are multiple additional datasets to incorporate to the HMSC model and how this will be achieved is still food for thoughts!
+    - Most important of all, how will different datasets be incorporated in the same analysis.
+    - My first naïve thoughts:
+        1. Format data in a way that each dataset considered only included species that can be readily captured by fishing gears considered (see next point)
+        2. Include fishing gear type and survey ID as random factors in the analyses.
+        3. Consider individual observations for the analysis spatially rather than at the scale of the fishing activity itself. I mean that within a year, all fishing activity, whether they be from fishing or scientific trawl surveys, could be grouped as single observations if they fall within the same grid cell of *e.g.* 1km^2. We could also use something akin to a spatial moving window that create those observations in order to consider mobile gear types and spatial uncertainty.
+
+- Complete data formatting in order to exclude taxa that are should not be considered as readily capture by each fishing activity considered. For example, coastal species shouldn't be included in the trawl survey, which does not operate at depth over 50 meters.
+
+- Incorporate other or better environmental covariables, among them certain categorical variables that I haven't done yet (because I didn't know how to do it, which I've discussed with Guillaume. I should now be able to do it once I've figured it out appropriately)
+
+- A new interactions catalogue that includes nutrients and detritus will need to be built to maximize results accuracy and to avoid weird predictions like "Porifera consumes *Gadus morhua*".
+    - Short term, the large groups like Porifera could be split into their constituent species in order to avoid these mistakes.
+    - The same could be true for all species groups and they could be reaggregated back at the group level after interactions predictions are performed
+
+- At the moment, I believe that interactions prediction using *iEat* over predicts the amount of links, especially in areas where there are few species. At the moment, maps of taxa richness are the exact opposite of maps for link density and connectance. I believe that the fact that we are using a KNN algorithm forces the predictions to include a minimum number of interactions for taxa, meaning that areas with lower richness will have seemingly higher rates of link. I may be wrong though and results may actually represent a true ecological fact. I need to delve deeper into the results to find out, which I haven't had time to do.
+
+- Use probabilities instead of binary values for both spatial occurrences and biotic interactions. Ultimately, this could allow us to obtain, for each grid cell, a matrix of length equal to the number of taxa indicating the probability of species interacting based on both interaction and co-occurrence probabilities.
+    - At the moment, results from *iEat* are deterministic and obtaining probabilities would be highly valuable (recurring conversation, I haven't had time to truly get into it)
+    - Results from JSDMs are probabilistic, but I transformed them into binary occurrence probabilities using a 0.5 threshold value. This should be modified. In the meantime, we could derive taxa specific threshold values that minimize False Positive Rates and maximize True Positive Rates using ROC curves. I haven't looked into this yet.
+
+\pagebreak
+
+# Spatial description of St. Lawrence ecological networks
+
+```{r echo = FALSE, results = 'asis', fig.height = 6, fig.width = 6, fig.align = 'center'}
+
+    # Evaluate species co-occurrence based on threshold
+        threshold <- 0.5
+        predBin <- matrix(ncol = ncol(predEGSL), nrow = nrow(predEGSL), data = as.numeric(predEGSL >= threshold), dimnames = dimnames(predEGSL))
+        richness <- rowSums(predBin)
+
+    # Color palette
+        rbPal <- colorRampPalette(c('#2f6eb9','#2aadba','#b45f5f')) # color palette
+        cols <- rbPal(50)[as.numeric(cut(richness, breaks = 50))]
+
+    # Plot
+        layout(matrix(c(1,1,1,0,2,0),ncol=2), width = c(9,1), height = c(3,3,3))
+        par(mar = c(0,0,0,0))
+        plot(egsl_grid, col = cols, border = cols)
+        text(x = 350000, y = 950000, labels = 'Taxa richness (S)', cex = 1.5)
+        colorBar(rbPal(50), min = min(richness, na.rm = T), max = max(richness, na.rm = T), align = 'vertical')
+```
+
+<br/>
+Figure 1. Taxa richness (S) evaluated using a metacommunity of 124 taxa.
+
+\pagebreak
+
+
+```{r echo = FALSE, results = 'asis', fig.height = 6, fig.width = 6, fig.align = 'center'}
+
+    # Measure link density
+        linkDensity <- numeric(length(networkFoodWeb))
+        for(i in 1:length(networkFoodWeb)){
+            if(is.null(networkFoodWeb[[i]])) {
+                next
+            } else {
+                linkDensity[i] <- sum(networkFoodWeb[[i]]) / nrow(networkFoodWeb[[i]])                
+            }
+        }
+
+    # Color palette
+        rbPal <- colorRampPalette(c('#2f6eb9','#2aadba','#b45f5f')) # color palette
+        cols <- rbPal(50)[as.numeric(cut(linkDensity, breaks = 50))]
+
+    # Plot
+        layout(matrix(c(1,1,1,0,2,0),ncol=2), width = c(9,1), height = c(3,3,3))
+        par(mar = c(0,0,0,0))
+        plot(egsl_grid, col = cols, border = cols)
+        text(x = 350000, y = 950000, labels = 'Link density (L/S)', cex = 1.5)
+        colorBar(rbPal(50), min = min(linkDensity, na.rm = T), max = max(linkDensity, na.rm = T), align = 'vertical')
+```
+
+<br/>
+Figure 2. Predicted link density (L/S) evaluated using a metacommunity of 124 taxa.
+
+\pagebreak
+
+```{r echo = FALSE, results = 'asis', fig.height = 6, fig.width = 6, fig.align = 'center'}
+
+    # Measure link density
+        connectance <- numeric(length(networkFoodWeb))
+        for(i in 1:length(networkFoodWeb)){
+            if(is.null(networkFoodWeb[[i]])) {
+                next
+            } else {
+                connectance[i] <- sum(networkFoodWeb[[i]]) / (nrow(networkFoodWeb[[i]])^2)
+            }
+        }
+
+    # Color palette
+        rbPal <- colorRampPalette(c('#2f6eb9','#2aadba','#b45f5f')) # color palette
+        cols <- rbPal(50)[as.numeric(cut(connectance, breaks = 50))]
+
+    # Plot
+        layout(matrix(c(1,1,1,0,2,0),ncol=2), width = c(9,1), height = c(3,3,3))
+        par(mar = c(0,0,0,0))
+        plot(egsl_grid, col = cols, border = cols)
+        text(x = 350000, y = 950000, labels = paste('Connectance (L/', expression(S^2), ')', sep = ''), cex = 1.5)
+        colorBar(rbPal(50), min = round(min(connectance, na.rm = T),2), max = round(max(connectance, na.rm = T),2), align = 'vertical')
+```
+
+<br/>
+Figure 3. Predicted connectance (L/S^2) evaluated using a metacommunity of 124 taxa.
