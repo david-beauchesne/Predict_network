@@ -64,3 +64,18 @@ setwd("/Users/davidbeauchesne/Dropbox/PhD/PhD_obj2/Structure_Comm_EGSL/Predict_n
         }
 
         saveRDS(networkFoodWeb, file = './RData/networkFoodWeb.rds')
+
+    # Predict metaWeb of interactions
+        metaInteractions <- iEat(S0 = S0,
+                                 S1 = sp[, 'N_EspSci'],
+                                 S2 = sp[, 'N_EspSci'],
+                                 sourceSim = simConsumers,
+                                 targetSim = simResources,
+                                 K = 5,
+                                 minSim = 0.3,
+                                 minWt = 1,
+                                 predict = 'full algorithm')
+
+        metaWeb <- iEat_to_foodWeb(metaInteractions)
+
+        saveRDS(metaWeb, file = './RData/metaWeb.rds')
