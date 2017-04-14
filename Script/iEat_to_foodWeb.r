@@ -3,7 +3,7 @@ iEat_to_foodWeb <- function(iEatResult) {
     foodWeb <- matrix(nrow = nrow(iEatResult), ncol = nrow(iEatResult), data = 0, dimnames = list(rownames(iEatResult), rownames(iEatResult)))
 
     for(i in 1:nrow(iEatResult)) {
-        resources <- unique(c(unlist(str_split(x[i, 'target_catalogue'], ' \\| ')), unlist(str_split(x[i, 'target_predictive'], ' \\| '))))
+        resources <- unique(c(unlist(str_split(iEatResult[i, 'target_catalogue'], ' \\| ')), unlist(str_split(iEatResult[i, 'target_predictive'], ' \\| '))))
         foodWeb[which(rownames(foodWeb) %in% resources), i] <- 1
     }
 
