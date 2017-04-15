@@ -21,7 +21,12 @@ md_document:
     variant: markdown_strict
 ---
 
-<!-- render(input = './Script/4_predictNetwork.rmd', 'pdf_document') -->
+<!--
+
+library(rmarkdown)
+render(input = './Script/4_predictNetwork.rmd', 'pdf_document')
+
+-->
 
 ```{r comment=">", echo = FALSE, eval = TRUE, include = FALSE}
     rm(list=ls())
