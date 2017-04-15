@@ -18,7 +18,7 @@ setwd("/Users/davidbeauchesne/Dropbox/PhD/PhD_obj2/Structure_Comm_EGSL/EGSL_spec
     #install.packages('showtext', dependencies = TRUE)
     library(showtext)
     showtext.auto()
-    # xx <- font.files()
+    xx <- font.files()
     font.add(family = 'Triforce', regular = 'Triforce.ttf')
     font.add(family = 'regText', regular = 'Alegreya-Regular.otf')
     # font.add(family = 'Hylia', regular = 'HyliaSerifBeta-Regular.otf')
@@ -28,6 +28,8 @@ setwd("/Users/davidbeauchesne/Dropbox/PhD/PhD_obj2/Structure_Comm_EGSL/EGSL_spec
 source('/Users/davidbeauchesne/dropbox/phd/phd_rawdata/script/function/eplot.r')
 
 # Load files
+    northPluri <- readRDS('./RData/northPluriCor.rds') # northPluri
+    northPluri_HMSC <- readRDS('./RData/northPluri_HMSC.rds') # northPluri
     R2 <- readRDS('./RData/modelR2.rds') # Load individual model thur's R2
     R2comm <- readRDS('./RData/modelR2comm.rds') # Load mean model thur's R2
     modelAUC <- readRDS('./RData/modelAUC.rds') # Load individual model thur's R2
@@ -35,39 +37,57 @@ source('/Users/davidbeauchesne/dropbox/phd/phd_rawdata/script/function/eplot.r')
 # Prevalence
     prevSp <- colSums(northPluri_HMSC$Y)
 
+# Species list
+    sp <- northPluri[, c('EspGen','N_EspSci')] %>%
+            .[!duplicated(.), ] %>%
+            .[order(.[, 'EspGen']), ]
+
+# Identify species for special focus
+    spFocus <- c('Hippoglossus hippoglossus','Gadus morhua','Pandalus borealis','Chionoecetes opilio')
+    spFocusName <- c('Atlantic halibut', 'Atlantic cod', 'Northern prawn', 'Snow crab')
+    spFocusPoints <-numeric(length(spFocus))
+    for(i in 1:length(spFocus)) spFocusPoints[i] <- which(names(prevSp) == sp[which(sp[, 'N_EspSci'] == spFocus[i]), 'EspGen'])
+
+
+# Graph parameters
 paleGreen <- '#CFD05F'
 darkGreen <- '#56872F'
+paleEarth <- '#e0d9a0'
+textCol <- '#21120A'
 maxPrev <- 800
 meanAUC <- colMeans(modelAUC)
 sdAUC <- apply(modelAUC, MARGIN = 2, FUN = sd)
-
-jpeg('/users/davidbeauchesne/desktop/AUROC_R2.jpeg', width = 10, height = 10, res = 300, units = 'in')
-    par(bg = 'transparent', family = 'zelda')
+png('/users/davidbeauchesne/dropbox/phd/phd_obj2/Structure_Comm_EGSL/Predict_network/communication/AUROC_R2.png', width = 13, height = 13, res = 600, units = 'in', pointsize = 25)
+    par(bg = 'transparent', family = 'Triforce', col.lab = textCol, col.axis = textCol, col = textCol)
     eplot(xmin = 0, xmax = maxPrev, ymin = 0, ymax = 2.1)
-    lines(x = c(0,maxPrev), y = rep(R2comm+1.1, 2), col = paleGreen, lwd = 2) # R2 mean
-    lines(x = c(0,maxPrev), y = rep(0.5, 2), col = 'grey', lwd = 2) # AUROC random
-    lines(x = c(0,maxPrev), y = rep(mean(meanAUC), 2), col = paleGreen, lwd = 2) # AUROC mean
-    axis(side = 1, at = seq(0, maxPrev, by = 100), las = 1, pos = -0.02, family = 'regText', cex.lab = 1.5)
-    axis(side = 2, at = seq(0, 1, by = 0.2), labels = seq(0, 1, by = 0.2), las = 1, pos = -0.02, family = 'regText')
-    axis(side = 2, at = seq(0, 1, by = 0.2)+1.1, labels = seq(0, 1, by = 0.2), las = 1, pos = -0.02, family = 'regText')
-    axis(side = 3, at = seq(0, maxPrev, by = 100), pos = 2.12, family = 'regText')
-    axis(side = 4, at = seq(0, 1, by = 0.2), labels = seq(0, 1, by = 0.2), las = 1, pos = 800.02, family = 'regText')
-    axis(side = 4, at = seq(0, 1, by = 0.2)+1.1, labels = seq(0, 1, by = 0.2), las = 1, pos = 800.02, family = 'regText')
-    abline(h = 1.05, col = "grey", lty = 2)
-    text(x = maxPrev-10, y = 2.05, labels = 'Explanatory power of the model', font = 1, cex = 1.5, adj = 1)
-    text(x = maxPrev-10, y = .05, labels = 'Monte Carlo cross-validation', font = 1, cex = 1.5, adj = 1)
-    mtext(text = expression(R^2), side = 2, line = 2, at = 1.6, font = 1, cex = 1.5)
-    mtext(text = 'AUC', side = 2, line = 2, at = 0.5, font = 1, cex = 1.5)
+    # polygon(x = c(0,0,maxPrev,maxPrev), y = c(-.02,2.12,2.12,-.02), col = paleEarth, border = paleEarth)
     # R2
         points(prevSp, (R2+1.1), cex = 1, pch="*", las=1, col = darkGreen)
     # AUROC
         arrows(x0 = prevSp, x1 = prevSp, y0 = (meanAUC - sdAUC), y1 = (meanAUC + sdAUC), code = 3, angle = 90, length = 0.05, col = darkGreen)
         points(prevSp, meanAUC, cex = 1, pch="*", las=1, col = darkGreen)
+    # Species focus
+        points(prevSp[spFocusPoints], (R2[spFocusPoints]+1.1), cex = 1, pch="*", las=1, col = 'red')
+        points(prevSp[spFocusPoints], meanAUC[spFocusPoints], cex = 1, pch="*", las=1, col = 'red')
+        arrows(x0 = prevSp[spFocusPoints], x1 = prevSp[spFocusPoints], y0 = (meanAUC[spFocusPoints] - sdAUC[spFocusPoints]), y1 = (meanAUC[spFocusPoints] + sdAUC[spFocusPoints]), code = 3, angle = 90, length = 0.05, col = 'red', lwd = 1.5)
+        labelOrder <- c(4,2,3,4)
+        for(i in 1:length(spFocus)) text(prevSp[spFocusPoints[i]], (R2[spFocusPoints[i]]+1.1), spFocusName[i], cex=0.8, pos=labelOrder[i], col="red")
+        labelOrder <- c(1,3,3,4)
+        for(i in 1:length(spFocus)) text(prevSp[spFocusPoints[i]], meanAUC[spFocusPoints[i]], spFocusName[i], cex=0.8, pos=labelOrder[i], col="red")
+    lines(x = c(0,maxPrev), y = rep(R2comm+1.1, 2), col = paleGreen, lwd = 3) # R2 mean
+    lines(x = c(0,maxPrev), y = rep(0.5, 2), col = 'grey', lwd = 3) # AUROC random
+    lines(x = c(0,maxPrev), y = rep(mean(meanAUC), 2), col = paleGreen, lwd = 3) # AUROC mean
+    #Axes
+    axis(side = 1, at = seq(0, maxPrev, by = 100), las = 1, pos = -0.02, family = 'regText', cex.axis = 1.25, lwd = 3)
+    axis(side = 2, at = seq(0, 1, by = 0.2), labels = seq(0, 1, by = 0.2), las = 1, pos = -0.02, family = 'regText', lwd = 3, cex.axis = 1.25)
+    axis(side = 2, at = seq(0, 1, by = 0.2)+1.1, labels = seq(0, 1, by = 0.2), las = 1, pos = -0.02, family = 'regText', lwd = 3, cex.axis = 1.25)
+    # axis(side = 3, at = seq(0, maxPrev, by = 100), pos = 2.12, family = 'regText', lwd = 3, cex.axis = 1.25)
+    # axis(side = 4, at = seq(0, 1, by = 0.2), labels = seq(0, 1, by = 0.2), las = 1, pos = 800.02, family = 'regText', lwd = 3, cex.axis = 1.25)
+    # axis(side = 4, at = seq(0, 1, by = 0.2)+1.1, labels = seq(0, 1, by = 0.2), las = 1, pos = 800.02, family = 'regText', lwd = 3, cex.axis = 1.25)
+    abline(h = 1.05, col = textCol, lty = 2, lwd = 2)
+    text(x = maxPrev-10, y = 2.05, labels = 'Explanatory power of the model', font = 1, cex = 1, adj = 1)
+    text(x = maxPrev-10, y = .05, labels = 'Monte Carlo cross-validation', font = 1, cex = 1, adj = 1)
+    mtext(text = expression(R^2), side = 2, line = 2, at = 1.6, font = 1, cex = 1.5)
+    mtext(text = 'AUC', side = 2, line = 2, at = 0.5, font = 1, cex = 1.5)
+    mtext(text = 'Prevalence', side = 1, line = 2, at = maxPrev/2, font = 1, cex = 1.5)
 dev.off()
-
-
-# Example of labeling points DO WITH GADUS MORHUA
-attach(mtcars)
-plot(wt, mpg, main="Milage vs. Car Weight",
-  	xlab="Weight", ylab="Mileage", pch=18, col="blue")
-text(wt, mpg, row.names(mtcars), cex=0.6, pos=4, col="red")
