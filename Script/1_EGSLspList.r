@@ -1,13 +1,3 @@
-rm(list=ls())
-setwd("/Users/davidbeauchesne/Dropbox/PhD/PhD_obj2/Structure_Comm_EGSL/Predict_network/")
-
-library(reshape2)
-library(tidyr)
-library(dplyr)
-library(sp)
-library(rgdal)
-library(stringr)
-
 source('../Interaction_catalog/Script/taxo_resolve.r')
 source('../Interaction_catalog/Script/taxon_resolve_for_classification.r')
 source('../Interaction_catalog/Script/taxo_valid.r')

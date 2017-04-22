@@ -1,5 +1,6 @@
+##############
+source("init.r")
 rm(list=ls())
-setwd("/Users/davidbeauchesne/Dropbox/PhD/PhD_obj2/Structure_Comm_EGSL/Predict_network/")
 
 # Functions
     source('./Script/iEat.r')
