@@ -16,9 +16,12 @@ taxon <- readRDS("./RData/spEGSL.rds")
 taxon_grp <- taxon[,3] %>%
   as.character %>%
   strsplit(split="[|]") %>%
-  lapply(FUN = function(x) paste(x[1:3], collapse="")) %>%
+  lapply(FUN = function(x) paste(x[2:3], collapse="-")) %>%
   unlist
-taxon$grp <- taxon_grp
+##
+taxon$grp <- gsub(taxon_grp, pat=" ", rep="")
+taxon[which(taxon$grp=="Chordata-Actinopteri"),1:2]
+taxon$grp[which(taxon$grp=="Chordata-Actinopteri")] <- "Chordata-Actinopterygii"
 
 
 #### Crabe crevette Flétan
@@ -51,19 +54,28 @@ vec_size[id] <- 18
 # sp_nm <- "cracreflé"
 netw <-  graph_from_adjacency_matrix(t(subweb))
 ##
-png(paste0("./fig/cracreflé.png"), width=7, height=7, units="in", res=300)
-par(bg="black", mar=rep(0.4,4))
-plot(netw,
-  vertex.color = as.factor(grptax),
-  vertex.frame.color = "transparent",
-  vertex.label.color = "black",
-  vertex.label = vec_names,
-  vertex.size = vec_size,
-  # edge.width = 1+3*log(links$weight/min(links$weight)),
-  edge.arrow.size = .8
-  # edge.color = factor(links$from, levels=levels(as.factor(nodes$id)))
-  )
-  # layout = coords)
+pal <- c("#cc154b", "#f79809", "#11bdec",
+  "#0c3179", "#680c88", "#f526f4", "#75da10", "#0b6b43",
+  "#888a88", "#6b4308")
+vec_col <-  pal[as.numeric(as.factor(grptax))]
+##
+png(paste0("./fig/cracreflé.png"), width=7, height=9, units="in", res=300)
+  layout(matrix(c(1,2), 2, 1), height=c(.8,.2))
+  par(bg="black", mar=rep(0.4,4), fg="white")
+  plot(netw,
+    vertex.color = vec_col,
+    vertex.frame.color = "transparent",
+    vertex.label.color = "black",
+    vertex.label = vec_names,
+    vertex.size = vec_size,
+    # edge.width = 1+3*log(links$weight/min(links$weight)),
+    edge.arrow.size = .5
+    # edge.color = factor(links$from, levels=levels(as.factor(nodes$id)))
+    )
+  plot0()
+  legend("center", bty="n", legend=sort(unique(grptax)), cex=1.2, pch=21, ncol=2,
+  pt.bg=pal, col=pal, pt.cex=2.4)
+    # layout = coords)
 dev.off()
 
 ## Legend
@@ -77,7 +89,14 @@ for (i in 1:length(nms)){
   leg_txt %<>% paste0(c("PB", "CO", "HH")[i], "-", nms[i], "; ")
 }
 
-#### Focus Species
+
+
+
+
+
+
+
+#### 1 network per focus species.
 for (i in 1:length(spFocus)) {
   sp_nm <- spFocus[i]
   ####
@@ -101,6 +120,7 @@ for (i in 1:length(spFocus)) {
   png(paste0("./fig/", sp_nm, ".png"), width=7, height=7, units="in", res=300)
 
   par(bg="black", mar=rep(0.4,4))
+
   plot(netw,
     vertex.color = as.factor(grptax),
     vertex.frame.color= "transparent",
